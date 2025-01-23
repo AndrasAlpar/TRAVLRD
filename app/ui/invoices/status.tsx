@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ClockIcon,
   ExclamationCircleIcon,
+  XCircleIcon
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useState } from "react";
@@ -37,6 +38,12 @@ export default function InvoiceStatus({
         return {
           label: "Overdue",
           icon: <ExclamationCircleIcon className="ml-1 w-4 text-white" />,
+          color: "bg-orange-500 text-white",
+        };
+      case "closed":
+        return {
+          label: "Close",
+          icon: <XCircleIcon className="ml-1 w-4 text-white" />,
           color: "bg-red-500 text-white",
         };
       default:
@@ -70,7 +77,7 @@ export default function InvoiceStatus({
 
       {dropdownOpen && (
         <div className="absolute right-0 z-10 mt-2 w-36 bg-white border rounded shadow-lg">
-          {["pending", "paid", "overdue"].map((s) => {
+          {["pending", "paid", "overdue", "closed"].map((s) => {
             const statusDetails = getStatusDetails(s);
             return (
               <button
