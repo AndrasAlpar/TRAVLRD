@@ -112,7 +112,24 @@ export async function fetchFilteredInvoices(
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
 
-    return invoices.rows;
+    const now = new Date();
+
+    // Check if "Pending" invoices are overdue
+    const updatedInvoices = invoices.rows.map((invoice) => {
+      if (invoice.status === "pending") {
+        const now = new Date();
+        const invoiceDate = new Date(invoice.date);
+        const diffDays = Math.floor(
+          (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (diffDays > 14) {
+          invoice.status = "overdue";
+        }
+      }
+      return invoice;
+    });
+
+    return updatedInvoices;
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoices.');
