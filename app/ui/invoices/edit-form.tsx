@@ -135,15 +135,15 @@ export default function EditInvoiceForm({
               </div>
               <div className="flex items-center">
                 <input
-                  id="closed"
+                  id="close"
                   name="status"
                   type="radio"
                   value="closed"
-                  defaultChecked={invoice.status === 'paid'}
+                  defaultChecked={invoice.status === 'closed'}
                   className="h-4 w-4 border-gray-300 bg-gray-100 text-gray-600 focus:ring-2"
                 />
                 <label
-                  htmlFor="closed"
+                  htmlFor="close"
                   className="ml-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-red-500 px-3 py-1.5 text-xs font-medium text-white"
                 >
                   Close <XCircleIcon className="h-4 w-4" />
