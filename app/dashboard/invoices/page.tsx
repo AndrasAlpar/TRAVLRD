@@ -6,6 +6,7 @@ import { lusitana } from '@/app/ui/fonts';
 import { InvoicesTableSkeleton } from '@/app/ui/skeletons';
 import { Suspense } from 'react';
 import { fetchInvoicesPages } from '@/app/lib/data';
+import { cookies } from 'next/headers';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -21,8 +22,14 @@ export default async function Page(props: {
   const searchParams = await props.searchParams;
   const query = searchParams?.query || '';
   const currentPage = Number(searchParams?.page) || 1;
+  const cookieStore = await cookies();
+  const selectedTab = cookieStore.get('selectedTab')?.value || 'all';
 
-  const totalPages = await fetchInvoicesPages(query);
+  const totalPages = await fetchInvoicesPages(
+    query,
+    selectedTab === 'all' ? '' : selectedTab
+  );
+
 
   return (
     <div className="w-full">

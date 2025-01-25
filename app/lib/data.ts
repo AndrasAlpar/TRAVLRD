@@ -9,6 +9,34 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 
+const OVERDUE_THRESHOLD_DAYS = 14;
+
+function calculateDateDifference(date1: Date, date2: Date): number {
+  return Math.floor(
+    (date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24)
+  );
+}
+
+async function updateOverdueInvoices() {
+    const pendingInvoices =
+      await sql<InvoicesTable>`SELECT id, date FROM invoices WHERE status = 'pending'`;
+    const overdueInvoiceIds: string[] = [];
+    const currentDate = new Date();
+
+    pendingInvoices.rows.forEach((invoice) => {
+      const invoiceDate = new Date(invoice.date);
+      const diffDays = calculateDateDifference(currentDate, invoiceDate);
+      if (diffDays > OVERDUE_THRESHOLD_DAYS) {
+        overdueInvoiceIds.push(invoice.id);
+      }
+    });
+
+    if (overdueInvoiceIds.length > 0) {
+      //@ts-ignore
+      await sql`UPDATE invoices SET status = 'overdue' WHERE id = ANY(${overdueInvoiceIds}::uuid[])`;
+    }
+}
+
 export async function fetchRevenue() {
   try {
     // Artificially delay a response for demo purposes.
@@ -84,13 +112,16 @@ export async function fetchCardData() {
 }
 
 const ITEMS_PER_PAGE = 6;
+
 export async function fetchFilteredInvoices(
   query: string,
-  currentPage: number,
+  selectedTab: string | null,
+  currentPage: number
 ) {
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-
   try {
+    await updateOverdueInvoices();
+
     const invoices = await sql<InvoicesTable>`
       SELECT
         invoices.id,
@@ -103,50 +134,38 @@ export async function fetchFilteredInvoices(
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
       WHERE
-        customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`} OR
-        invoices.amount::text ILIKE ${`%${query}%`} OR
-        invoices.date::text ILIKE ${`%${query}%`} OR
-        invoices.status ILIKE ${`%${query}%`}
+        (invoices.status ILIKE ${selectedTab} OR '' ILIKE ${selectedTab}) AND (
+          customers.name ILIKE ${`%${query}%`} OR
+          customers.email ILIKE ${`%${query}%`} OR
+          invoices.amount::text ILIKE ${`%${query}%`} OR
+          invoices.date::text ILIKE ${`%${query}%`}
+        )
       ORDER BY invoices.date DESC
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
 
-    const now = new Date();
-
-    // Check if "Pending" invoices are overdue
-    const updatedInvoices = invoices.rows.map((invoice) => {
-      if (invoice.status === "pending") {
-        const now = new Date();
-        const invoiceDate = new Date(invoice.date);
-        const diffDays = Math.floor(
-          (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (diffDays > 14) {
-          invoice.status = "overdue";
-        }
-      }
-      return invoice;
-    });
-
-    return updatedInvoices;
+    return invoices.rows;
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoices.');
   }
 }
 
-export async function fetchInvoicesPages(query: string) {
+export async function fetchInvoicesPages(
+  query: string,
+  selectedTab: string | null
+) {
   try {
     const count = await sql`SELECT COUNT(*)
     FROM invoices
     JOIN customers ON invoices.customer_id = customers.id
     WHERE
-      customers.name ILIKE ${`%${query}%`} OR
-      customers.email ILIKE ${`%${query}%`} OR
-      invoices.amount::text ILIKE ${`%${query}%`} OR
-      invoices.date::text ILIKE ${`%${query}%`} OR
-      invoices.status ILIKE ${`%${query}%`}
+      (invoices.status ILIKE ${selectedTab} OR '' ILIKE ${selectedTab}) AND (
+        customers.name ILIKE ${`%${query}%`} OR
+        customers.email ILIKE ${`%${query}%`} OR
+        invoices.amount::text ILIKE ${`%${query}%`} OR
+        invoices.date::text ILIKE ${`%${query}%`}
+      )
   `;
 
     const totalPages = Math.ceil(Number(count.rows[0].count) / ITEMS_PER_PAGE);
